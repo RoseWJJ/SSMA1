@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xmlns:aop="http://www.springframework.org/schema/aop"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+	http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.2.xsd
+	http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.1.xsd
+	http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.1.xsd
+	
+	"
+	
+	>
+	
+		<!--  
+		spring    模型层（service   dao）
+		spring	 是bean的容器 service+repository  必须排除Controller
+	
+	 -->
+	<context:component-scan base-package="com">
+		<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+	</context:component-scan>
+	
+	<context:property-placeholder location="classpath:mysql.properties"/>
+	
+	<!-- 所有数据库操作的源头实现自接口DataScouce
+		DriverManagerDataSource(请求一个连接用完关闭  连接重用  连接池)
+	-->
+	<bean id="druidDataSource" class="com.alibaba.druid.pool.DruidDataSource">
+		<property name="url" value="${url}"></property>
+		<property name="driverClassName" value="${driverClass}"></property>
+		<property name="username" value="${username1}"></property>
+		<property name="password" value="${password}"></property>
+		<property name="initialSize" value="1"></property>
+		<property name="maxActive" value="200"></property>
+		<property name="maxIdle" value="100"></property>
+		<!-- 开启sql监控功能（统计） -->
+		<!--<property name="filters" value="stat"></property>-->
+	</bean>
+	<!-- 
+		集成mybatis
+		配置session工厂
+	-->
+	<bean id="sqlSessionFactoryBean" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="druidDataSource"></property>
+	</bean>
+	<bean id ="sqlSessionTemplate" class="org.mybatis.spring.SqlSessionTemplate" >
+		<constructor-arg index="0" ref="sqlSessionFactoryBean"></constructor-arg>	
+	</bean>
+	<!-- 扫描mybatis 接口映射 -->
+	<bean id="mapperScannerConfigurer" class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+	<!--确定扫描的包  *..*任意层次的包-->
+	<property name="basePackage" value="com.*.dao"></property>
+	</bean>
+	
+	
+	
+	 <!--配置事务管理器-->
+	 <bean  id="tm" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+	 	<property name="dataSource" ref="druidDataSource"></property>
+	 </bean>
+	 
+	 
+	 <tx:advice  transaction-manager="tm" id="txAdvise">
+	 	<tx:attributes>
+	 		<tx:method  name="add*" propagation="REQUIRED"/>
+	 		<tx:method  name="delete*" propagation="REQUIRED"/>
+	 		<tx:method  name="update*" propagation="REQUIRED"/>
+	 		<tx:method  name="*" read-only="true"/>
+	 		
+	 	</tx:attributes>
+	 
+	 </tx:advice>
+	 
+	 
+
+	 <!--定义 一个搜索条件 及切点 （表示对那个类的那个方法进行拦截）
+	利用AspectJ切入点表达式
+	ection* com.easytop.spring.ArithmeticCalculator.*(..)匹配ArithmeticCalculator 中声明的所有方法，第一个*代表任意修饰符 及任意返回值，第二个* 代表任意方法，
+	..配置任意数量的参数
+	
+	  -->
+	<aop:config>	
+	<aop:pointcut expression="execution(* com.*..*service.*.*(..))" id="myPointCut"/>
+	
+	<aop:advisor advice-ref="txAdvise" pointcut-ref="myPointCut"/>
+	</aop:config>
+	
+</beans>
+	
+	
+
